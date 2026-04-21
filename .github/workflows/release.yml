@@ -16,7 +16,7 @@ jobs:
     - name: Configurar Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.13' # Sincronizado con tu local
+        python-version: '3.13'
 
     - name: Instalar Dependencias
       run: |
@@ -26,7 +26,6 @@ jobs:
     - name: Crear .env desde Secret
       shell: pwsh
       run: |
-        # Usamos New-Content o Out-File con encoding específico para evitar UTF-16
         $envContent = "${{ secrets.SERVERS_PASSWORDS }}"
         [System.IO.File]::WriteAllLines("$(Get-Location)\.env", $envContent)
 
@@ -37,23 +36,31 @@ jobs:
       id: release_info
       shell: pwsh
       run: |
-        # Leer el JSON de la carpeta ollama
-        $jsonPath = "ollama/data/version.json"
-        if (!(Test-Path $jsonPath)) { throw "No se encontró version.json en $jsonPath" }
+        # AJUSTE DE RUTA: data está en la raíz
+        $jsonPath = "data/version.json"
+        
+        if (!(Test-Path $jsonPath)) { 
+            Write-Host "Error: No se encontró el archivo en $jsonPath"
+            ls -R # Esto te ayudará a ver la estructura en el log si falla
+            throw "No se encontró version.json" 
+        }
+        
         $json = Get-Content $jsonPath | ConvertFrom-Json
         
-        # Crear estructura de carpetas para el ZIP (lo que recibe el usuario)
+        # Crear estructura para el ZIP
         New-Item -ItemType Directory -Path "dist/zip_content/data"
         Copy-Item "dist/BIGServers.exe" "dist/zip_content/"
-        Copy-Item "ollama/data/version.json" "dist/zip_content/data/"
+        
+        # Copiamos el JSON original a la carpeta data del ZIP
+        Copy-Item "data/version.json" "dist/zip_content/data/"
         
         # Generar ZIP
         Compress-Archive -Path "dist/zip_content/*" -DestinationPath "dist/BIGServers.zip"
         
-        # Crear el version.json externo para el check de actualizaciones
+        # Crear version.json suelto para el checker
         $json | ConvertTo-Json -Depth 10 | Out-File -FilePath dist/version.json -Encoding utf8
         
-        # Exportar variables al output de GitHub Actions
+        # Exportar variables
         echo "TAG=$($json.action_config.tag)" >> $env:GITHUB_OUTPUT
         echo "TITLE=$($json.action_config.release_title)" >> $env:GITHUB_OUTPUT
         echo "DESC=$($json.action_config.release_description)" >> $env:GITHUB_OUTPUT
