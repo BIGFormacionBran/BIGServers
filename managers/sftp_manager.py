@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
-from registries.server_registry import ServerRegistry
 from utils.ssh_util import SSHUtil
+from utils.db_util import DBUtil
 from utils.paths_util import Paths
 from utils.logger_util import Logger
 
@@ -9,28 +9,20 @@ log = Logger.get_logger("SFTP_MANAGER")
 
 class SFTPManager:
     def __init__(self):
-        # Cargar variables del .env
-        load_dotenv(Paths.ROOT / ".env")
+        # Cargamos el .env (que ahora tendrá la DATABASE_URL)
+        load_dotenv(Paths.ENV_FILE)
         
         self.ssh_client = None
         self.sftp_client = None
         self.current_session = None
-        
-        # Cargar inventario de servidores
-        self.servers = ServerRegistry.SERVERS
 
     def connect(self, server_name):
-        """Conexión persistente usando SSHUtil."""
-        server = ServerRegistry.get_server(server_name)
+        """Conexión usando datos de la base de datos."""
+        # Obtenemos los datos (incluida la pass) de la DB
+        server = DBUtil.get_server_details(server_name)
+        
         if not server:
-            return False, "Servidor no encontrado en configuración."
-
-        # Obtener pass del .env
-        pass_key = f"SERVER_{server_name.upper()}_PASS"
-        password = os.getenv(pass_key)
-
-        if not password:
-            return False, f"Falta contraseña en .env ({pass_key})"
+            return False, "Servidor no encontrado en la base de datos."
 
         # Si ya estamos conectados al mismo, no hacemos nada
         if self.current_session == server_name and self.ssh_client:
@@ -38,8 +30,14 @@ class SFTPManager:
 
         self.disconnect()
 
-        # Usar el Util para el vuelo
-        client = SSHUtil.create_client(server['host'], server['user'], password, int(server.get('port', 22)), fingerprint=server.get('fingerprint'))
+        # Usamos los datos de la DB. Las keys coinciden con las columnas SQL
+        client = SSHUtil.create_client(
+            server['host'], 
+            server['usuario_ssh'], 
+            server['password_ssh'], 
+            int(server.get('puerto', 22)), 
+            fingerprint=server.get('fingerprint')
+        )
         
         if client:
             self.ssh_client = client
@@ -50,11 +48,9 @@ class SFTPManager:
         return False, "CONNECTION_FAILED"
 
     def list_dir(self, path):
-        """Ejecución de comando sobre sesión caliente."""
         if not self.sftp_client:
             return []
         try:
-            # listdir_attr nos da metadata (tamaño, tipo) en una sola petición
             return self.sftp_client.listdir_attr(path if path else ".")
         except Exception as e:
             log.error(f"Error en list_dir: {e}")
