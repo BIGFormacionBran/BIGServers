@@ -26,7 +26,8 @@ jobs:
     - name: Crear .env desde Secret
       shell: pwsh
       run: |
-        $envContent = "${{ secrets.SERVERS_PASSWORDS }}"
+        # Cambiamos la fuente: de contraseñas sueltas a la URL de conexión
+        $envContent = "DATABASE_URL=${{ secrets.DATABASE_URL }}"
         [System.IO.File]::WriteAllLines("$(Get-Location)\.env", $envContent)
 
     - name: Compilar EXE con Spec
