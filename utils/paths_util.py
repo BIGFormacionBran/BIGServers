@@ -1,34 +1,22 @@
-from pathlib import Path
-from functools import lru_cache
 import sys
+from pathlib import Path
 
 class Paths:
-    # BASE_DIR es donde reside el ejecutable (o el script main.py)
-    if getattr(sys, 'frozen', False):
-        BASE_DIR = Path(sys.executable).parent
-    else:
-        BASE_DIR = Path(__file__).parent.parent
-
-    # ROOT solo para recursos estáticos del código si fuera necesario
-    ROOT = Path(__file__).parent.parent
+    IS_FROZEN = getattr(sys, 'frozen', False)
+    # Directorio raíz del proyecto o del ejecutable
+    BASE_DIR = Path(sys.executable).parent if IS_FROZEN else Path(__file__).parent.parent
     
-    GUI = ROOT / "gui"
-    LOGS = BASE_DIR / "logs"
     DATA = BASE_DIR / "data"
+    LOGS = BASE_DIR / "logs"
     
-    LOG_FILE = LOGS / "system_debug.log"
-    REMOTE_CACHE = DATA / "remote_cache.json"
-    VERSION_JSON = DATA / "version.json"
-    # El .env sí puede ir dentro del EXE para proteger las contraseñas base
-    ENV_FILE = Path(sys._MEIPASS) / ".env" if getattr(sys, 'frozen', False) else ROOT / ".env"
-    
-    WINSCP_REG_KEY = r"Software\Martin Prikryl\WinSCP 2\Sessions"
+    LOG_FILE = LOGS / "app.log"
+    REMOTE_CACHE = DATA / "cache.json"
+    ENV_FILE = BASE_DIR / ".env"
 
     @classmethod
-    @lru_cache(maxsize=1)
-    def ensure_dirs(cls):
-        for folder in [cls.LOGS, cls.DATA]:
-            folder.mkdir(parents=True, exist_ok=True)
-        return True
+    def init(cls):
+        """Crea la estructura de carpetas necesaria."""
+        for p in [cls.DATA, cls.LOGS]:
+            p.mkdir(parents=True, exist_ok=True)
 
-Paths.ensure_dirs()
+Paths.init()

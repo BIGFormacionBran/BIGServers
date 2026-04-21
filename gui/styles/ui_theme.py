@@ -6,50 +6,26 @@ class UITheme:
     FG_TEXT = "#d4d4d4"
     ACCENT = "#007acc"
     
-    # --- CONFIGURACIÓN DE WIDGETS (ATRIBUTOS) ---
-    
-    # Pantalla de chat
-    CHAT_DISPLAY_ATTR = {
-        "bg": BG_CHAT, 
-        "fg": FG_TEXT, 
-        "font": ("Consolas", 11),
-        "borderwidth": 0, 
-        "padx": 10, 
-        "pady": 10
-    }
-    
-    # Campo de texto (Input)
-    CHAT_INPUT_ATTR = {
-        "bg": BG_INPUT, 
-        "fg": "white", 
-        "insertbackground": "white",
-        "borderwidth": 0, 
-        "highlightthickness": 1,
-        "highlightcolor": ACCENT
-    }
-    
-    # Botones rápidos (Listar, Conectar, Salir)
-    QUICK_BTN_ATTR = {
-        "bg": BG_INPUT, 
-        "fg": FG_TEXT, 
-        "relief": "flat", 
+    # --- CONFIGURACIÓN BASE ---
+    FONT_MONO = ("Consolas", 10)
+    FONT_UI = ("Segoe UI", 9)
+
+    # Atributos comunes para evitar repetición
+    _BASE_BTN = {
+        "relief": "flat",
         "cursor": "hand2",
-        "font": ("Segoe UI", 9, "bold"),
-        "activebackground": ACCENT,
+        "font": (FONT_UI[0], 9, "bold"),
         "activeforeground": "white"
     }
+
+    QUICK_BTN_ATTR = {**_BASE_BTN, "bg": BG_INPUT, "fg": FG_TEXT, "activebackground": ACCENT}
+    SEND_BTN_ATTR = {**_BASE_BTN, "bg": ACCENT, "fg": "white", "activebackground": "#005a9e"}
     
-    # Botón de enviar
-    SEND_BTN_ATTR = {
-        "bg": ACCENT, 
-        "fg": "white", 
-        "relief": "flat", 
-        "cursor": "hand2",
-        "font": ("Segoe UI", 9, "bold"),
-        "activebackground": "#005a9e"
+    CHAT_INPUT_ATTR = {
+        "bg": BG_INPUT, "fg": "white", "insertbackground": "white",
+        "borderwidth": 0, "highlightthickness": 1, "highlightcolor": ACCENT,
+        "font": FONT_MONO
     }
 
-    # --- LAYOUT HELPERS ---
-    # Usamos diccionarios para no repetir padx/pady en el código de la vista
+    # Helpers de Layout
     LAYOUT_FILL = {"expand": True, "fill": "both"}
-    COMMON_PADS = {"padx": 10, "pady": 5}
