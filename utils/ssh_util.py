@@ -1,47 +1,45 @@
 import paramiko
 import base64
-import binascii
+import hashlib
 from utils.logger_util import Logger
 
 log = Logger.get_logger("SSH_UTIL")
+
+# 1. Creamos una política personalizada para validar el Fingerprint de WinSCP
+class WinSCPFingerprintPolicy(paramiko.MissingHostKeyPolicy):
+    def __init__(self, fingerprint_str):
+        # Extraemos solo el hash final del string de WinSCP (ignora "ssh-ed25519" y "255")
+        self.expected_hash = fingerprint_str.split()[-1].strip()
+
+    def missing_host_key(self, client, hostname, key):
+        # Paramiko obtiene la llave pública real del servidor en este paso
+        key_blob = key.asbytes()
+        
+        # Calculamos el SHA-256 en el mismo formato que usa WinSCP (Base64 sin padding)
+        sha256_fp = base64.b64encode(hashlib.sha256(key_blob).digest()).decode('ascii').rstrip('=')
+        
+        # Calculamos también el MD5 por si en el futuro pones un fingerprint en formato hexadecimal
+        md5_fp = hashlib.md5(key_blob).hexdigest()
+        md5_fp = ':'.join(md5_fp[i:i+2] for i in range(0, len(md5_fp), 2))
+        
+        # Si la huella del servidor coincide con la tuya, autorizamos la conexión
+        if self.expected_hash == sha256_fp or self.expected_hash == md5_fp:
+            client.get_host_keys().add(hostname, key.get_name(), key)
+        else:
+            log.error(f"⚠️ Fingerprint mismatch en {hostname}! Esperado: {self.expected_hash}, Servidor: {sha256_fp}")
+            raise paramiko.SSHException("El Fingerprint del servidor no coincide con el configurado.")
 
 class SSHUtil:
     @staticmethod
     def create_client(host, user, password=None, port=22, fingerprint=None):
         try:
-            log.debug(f"🛠 Intentando crear cliente SSH para {user}@{host}...") # [cite: 3, 5]
+            log.debug(f"🛠 Intentando crear cliente SSH para {user}@{host}...") # [cite: 3, 5, 7, 9]
             client = paramiko.SSHClient()
             
+            # 2. Aplicamos la política correcta dependiendo de si hay fingerprint o no
             if fingerprint:
-                # El fingerprint de WinSCP es: "ssh-ed25519 255 base64..."
-                # 1. Separamos por espacios
-                parts = fingerprint.strip().split()
-                key_type = parts[0]
-                
-                # 2. El hash real SIEMPRE es la parte más larga y suele estar al final.
-                # Al usar parts[-1], evitamos que el "255" interfiera.
-                raw_b64 = parts[-1].strip() 
-                
-                # 3. Forzamos el padding correcto para Base64 si falta (evita el error 'Incorrect padding')
-                missing_padding = len(raw_b64) % 4
-                if missing_padding:
-                    raw_b64 += '=' * (4 - missing_padding)
-                
-                # 4. Decodificación robusta
-                key_binary = base64.b64decode(raw_b64)
-                
-                if "ed25519" in key_type.lower():
-                    key = paramiko.Ed25519Key(data=key_binary)
-                elif "rsa" in key_type.lower():
-                    key = paramiko.RSAKey(data=key_binary)
-                else:
-                    # Fallback para otros tipos de llave
-                    key = paramiko.PKey(data=key_binary)
-                
-                client.get_host_keys().add(host, key_type, key)
-                client.set_missing_host_key_policy(paramiko.RejectPolicy())
+                client.set_missing_host_key_policy(WinSCPFingerprintPolicy(fingerprint))
             else:
-                # Mantenemos la política automática para Experto, Dedicado y Retodigital
                 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             
             connect_params = {
@@ -62,7 +60,7 @@ class SSHUtil:
                 transport.window_size = 2147483647
                 transport.set_keepalive(30)
             
-            log.info(f"🚀 Túnel SSH establecido con {host}") # 
+            log.info(f"🚀 Túnel SSH establecido con {host}") # [cite: 4, 8, 10]
             return client
         except Exception as e:
             log.error(f"❌ Error crítico en SSHUtil: {e}") # 

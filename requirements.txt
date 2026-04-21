@@ -1,0 +1,16 @@
+# --- Conectividad y Protocolos ---
+paramiko>=3.5.0
+bcrypt>=4.2.0
+cryptography>=43.0.0
+
+# --- Gestión de Entorno ---
+python-dotenv>=1.0.1
+
+# --- Interfaz y Gráficos (La solución al error) ---
+# Pillow 11.0.0+ es la que tiene soporte oficial para Python 3.13
+Pillow>=11.0.0
+
+# --- Networking y Build ---
+requests>=2.32.0
+urllib3>=2.2.3
+pyinstaller>=6.11.0

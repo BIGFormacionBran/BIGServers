@@ -1,0 +1,15 @@
+{
+  "action_config": {
+    "tag": "v0.0.1",
+    "release_title": "Release v0.0.1 - Producción",
+    "release_description": "Primera versión de producción del SFTP AI Agent.",
+    "target": "main",
+    "is_latest": true
+  },
+  "app_info": {
+    "name": "SFTP AI Agent",
+    "description": "Asistente inteligente para gestión de archivos SFTP.",
+    "version": "0.0.1",
+    "build_date": "2026-04-21"
+  }
+}
