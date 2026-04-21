@@ -1,4 +1,5 @@
 import os
+import time
 from dotenv import load_dotenv
 from utils.ssh_util import SSHUtil
 from utils.db_util import DBUtil
@@ -9,33 +10,31 @@ log = Logger.get_logger("SFTP_MANAGER")
 
 class SFTPManager:
     def __init__(self):
-        # Cargamos el .env (que ahora tendrá la DATABASE_URL)
         load_dotenv(Paths.ENV_FILE)
-        
         self.ssh_client = None
         self.sftp_client = None
         self.current_session = None
 
     def connect(self, server_name):
-        """Conexión usando datos de la base de datos."""
-        # Obtenemos los datos (incluida la pass) de la DB
+        log.info(f"Intentando conectar a {server_name}")
+        t0 = time.time()
         server = DBUtil.get_server_details(server_name)
         
         if not server:
-            return False, "Servidor no encontrado en la base de datos."
+            log.error(f"Servidor {server_name} no encontrado en DB")
+            return False, "Servidor no encontrado."
 
-        # Si ya estamos conectados al mismo, no hacemos nada
         if self.current_session == server_name and self.ssh_client:
             return True, "ALREADY_CONNECTED"
 
         self.disconnect()
 
-        # Usamos los datos de la DB. Las keys coinciden con las columnas SQL
+        log.info(f"Estableciendo túnel SSH para {server['host']}...")
         client = SSHUtil.create_client(
             server['host'], 
-            server['usuario_ssh'], 
-            server['password_ssh'], 
-            int(server.get('puerto', 22)), 
+            server['user'], 
+            server['password'], 
+            int(server.get('port', 22)), 
             fingerprint=server.get('fingerprint')
         )
         
@@ -43,24 +42,31 @@ class SFTPManager:
             self.ssh_client = client
             self.sftp_client = SSHUtil.get_sftp(client)
             self.current_session = server_name
+            log.info(f"Conexión completa en {time.time()-t0:.4f}s")
             return True, "CONNECTED"
         
+        log.error("Fallo al crear cliente SSH")
         return False, "CONNECTION_FAILED"
 
     def list_dir(self, path):
-        if not self.sftp_client:
-            return []
+        if not self.sftp_client: return []
+        t0 = time.time()
         try:
-            return self.sftp_client.listdir_attr(path if path else ".")
+            res = self.sftp_client.listdir_attr(path if path else ".")
+            log.info(f"ListDir remoto '{path}' en {time.time()-t0:.4f}s")
+            return res
         except Exception as e:
-            log.error(f"Error en list_dir: {e}")
+            log.error(f"Error list_dir remoto: {e}")
             return []
 
     def disconnect(self):
+        if self.current_session:
+            log.info(f"Desconectando sesión: {self.current_session}")
         try:
             if self.sftp_client: self.sftp_client.close()
             if self.ssh_client: self.ssh_client.close()
-        except: pass
+        except Exception as e:
+            log.error(f"Error al desconectar: {e}")
         self.ssh_client = None
         self.sftp_client = None
         self.current_session = None

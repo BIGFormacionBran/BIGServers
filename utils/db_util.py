@@ -1,4 +1,5 @@
 import os
+import time
 import psycopg2
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
@@ -6,30 +7,27 @@ from utils.paths_util import Paths
 from utils.logger_util import Logger
 
 log = Logger.get_logger("DB_UTIL")
-
-# Cargamos las variables desde el .env (que Paths localiza automáticamente)
 load_dotenv(Paths.ENV_FILE)
 
 class DBUtil:
-    # Leemos de las variables de entorno inyectadas por el Secret de GitHub
     DATABASE_URL = os.getenv("DATABASE_URL")
     ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
     
-    # Inicializamos el suite de cifrado solo si la clave existe
     cipher_suite = None
     if ENCRYPTION_KEY:
         try:
             cipher_suite = Fernet(ENCRYPTION_KEY.encode())
         except Exception as e:
-            log.error(f"Error al inicializar la clave de cifrado: {e}")
+            log.error(f"Error inicializando cipher_suite: {e}")
 
     @classmethod
     def get_server_list(cls):
-        """Obtiene solo los nombres para el Combobox"""
+        log.info("DB: Solicitando lista de servidores")
         if not cls.DATABASE_URL:
-            log.error("DATABASE_URL no configurada.")
+            log.error("DATABASE_URL no definida")
             return []
             
+        t0 = time.time()
         try:
             conn = psycopg2.connect(cls.DATABASE_URL)
             cur = conn.cursor()
@@ -37,18 +35,20 @@ class DBUtil:
             servers = [row[0] for row in cur.fetchall()]
             cur.close()
             conn.close()
+            log.info(f"DB: Lista obtenida en {time.time()-t0:.4f}s")
             return servers
         except Exception as e:
-            log.error(f"Error al listar servidores de DB: {e}")
+            log.error(f"Error DB (get_server_list): {e}")
             return []
 
     @classmethod
     def get_server_details(cls, name):
-        """Obtiene todos los datos y DESCIFRA la contraseña"""
+        log.info(f"DB: Solicitando detalles de {name}")
         if not cls.DATABASE_URL or not cls.cipher_suite:
-            log.error("Configuración de DB o Cifrado incompleta.")
+            log.error("Configuración de DB o cifrado incompleta")
             return None
 
+        t0 = time.time()
         try:
             conn = psycopg2.connect(cls.DATABASE_URL)
             cur = conn.cursor()
@@ -63,10 +63,8 @@ class DBUtil:
             conn.close()
 
             if row:
-                # Descifrar la contraseña usando la clave del Secret
-                encrypted_pass = row[2]
-                decrypted_pass = cls.cipher_suite.decrypt(encrypted_pass.encode()).decode()
-                
+                decrypted_pass = cls.cipher_suite.decrypt(row[2].encode()).decode()
+                log.info(f"DB: Detalles de {name} obtenidos y descifrados en {time.time()-t0:.4f}s")
                 return {
                     "host": row[0],
                     "user": row[1],
@@ -75,7 +73,8 @@ class DBUtil:
                     "fingerprint": row[4],
                     "type": row[5]
                 }
+            log.warning(f"DB: Servidor {name} no encontrado")
         except Exception as e:
-            log.error(f"Error al obtener detalles del servidor {name}: {e}")
+            log.error(f"Error DB (get_server_details): {e}")
             
         return None

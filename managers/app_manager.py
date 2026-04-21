@@ -12,52 +12,52 @@ log = Logger.get_logger("APP_MANAGER")
 
 class AppManager:
     def __init__(self):
+        t0 = time.time()
+        log.info("Iniciando AppManager...")
         from gui.chat_window import ChatWindow
         self.sftp = SFTPManager()
-        # Inicializamos la GUI
         self.gui = ChatWindow(on_submit_callback=self.handle_input)
         
-        # Rutas y Estados
         self.current_local_path = r"C:\Users\SERGIO\Desktop\Bran"
         if not os.path.exists(self.current_local_path):
             self.current_local_path = os.getcwd()
             
         self.current_remote_path = ""
         self.cache_file = Paths.REMOTE_CACHE
-        
-        # Lock para operaciones críticas de red
         self._sync_lock = threading.Lock()
         
-        # Carga de caché
         self.remote_cache = {}
         if self.cache_file.exists():
             try:
                 self.remote_cache = JsonUtil.load(self.cache_file) or {}
-            except Exception:
-                self.remote_cache = {}
+                log.info(f"Caché cargada: {len(self.remote_cache)} entradas.")
+            except Exception as e:
+                log.error(f"Error cargando caché: {e}")
 
-        # Actualizar servidores en el combo (Ahora desde DBUtil)
         self._refresh_gui_servers()
+        log.info(f"AppManager inicializado en {time.time() - t0:.4f}s")
 
     def _write_log(self, role, text):
-        """Usa el método write_message de la ventana principal"""
         try:
+            log.info(f"Escribiendo en UI ({role}): {text[:50]}...")
             self.gui.write_message(role, text)
         except Exception as e:
-            log.error(f"Error fatal al escribir en UI: {e}")
+            log.error(f"Error escribiendo en UI: {e}")
 
     def _refresh_gui_servers(self):
-        """Obtiene los nombres directamente de la base de datos"""
+        t0 = time.time()
         try:
             server_names = DBUtil.get_server_list()
+            log.info(f"Servidores obtenidos de DB: {server_names} ({time.time()-t0:.4f}s)")
             self.gui.root.after(0, lambda: self.gui.view.update_servers(server_names))
         except Exception as e:
-            log.error(f"Error cargando servidores de DB: {e}")
+            log.error(f"Error refrescando servidores: {e}")
             self._write_log("system", "❌ Error al conectar con Neon DB")
 
     def handle_input(self, text):
         if not text: return
         msg = text.strip()
+        log.info(f"Procesando entrada: {msg}")
         
         if msg.startswith("/connect"):
             server_name = msg.split(" ", 1)[1] if " " in msg else ""
@@ -69,7 +69,6 @@ class AppManager:
             target = msg.split(" ", 1)[1] if " " in msg else ""
             self._change_local_dir(target)
         else:
-            # Si no es un comando, lo enviamos como mensaje de usuario
             self._write_log("user", msg)
 
     def _do_connect(self, name):
@@ -77,14 +76,18 @@ class AppManager:
             self._write_log("bot", "⚠️ Especifica un servidor.")
             return
 
+        log.info(f"Iniciando hilo de conexión a {name}")
         self._write_log("bot", f"🚀 Conectando a {name}...")
         
         def run_connect():
+            t_start = time.time()
             success, result_msg = self.sftp.connect(name)
             if success:
-                self.current_remote_path = "." # Iniciamos en el home
+                log.info(f"Conectado a {name} en {time.time()-t_start:.4f}s")
+                self.current_remote_path = "." 
                 self.gui.root.after(0, self._after_connect_success)
             else:
+                log.error(f"Fallo al conectar a {name}: {result_msg}")
                 self.gui.root.after(0, lambda: self._write_log("bot", f"❌ Error: {result_msg}"))
         
         threading.Thread(target=run_connect, daemon=True).start()
@@ -93,33 +96,34 @@ class AppManager:
         self.gui.view.show_file_explorer()
         self._refresh_local_view()
         self._refresh_remote_view()
-        self._write_log("bot", "✨ Conexión establecida. Explorador activado.")
+        self._write_log("bot", "✨ Conexión establecida.")
 
     def _change_local_dir(self, target):
+        log.info(f"Cambiando directorio local a: {target}")
         try:
             new_path = os.path.abspath(os.path.join(self.current_local_path, target))
             if os.path.isdir(new_path):
                 self.current_local_path = new_path
                 self._refresh_local_view()
             else:
+                log.warning(f"Ruta local no válida: {new_path}")
                 self._write_log("system", "Ruta local inválida.")
         except Exception as e:
             log.error(f"Error CD Local: {e}")
 
     def _change_remote_dir(self, target):
         if not self.sftp.sftp_client: return
-        # Lógica para subir nivel o entrar en carpeta
+        log.info(f"Cambiando directorio remoto a: {target}")
         if target == "..":
-            # Unir y normalizar para SFTP (Linux style)
             parts = self.current_remote_path.rstrip('/').split('/')
             if len(parts) > 1: parts.pop()
             self.current_remote_path = "/".join(parts) or "/"
         else:
             self.current_remote_path = f"{self.current_remote_path.rstrip('/')}/{target}"
-        
         self._refresh_remote_view()
 
     def _refresh_local_view(self):
+        t0 = time.time()
         try:
             data = []
             with os.scandir(self.current_local_path) as it:
@@ -131,6 +135,7 @@ class AppManager:
             
             data.sort(key=lambda x: (x[1] != "DIR", x[0].lower()))
             self.gui.view.local_exp.refresh(self.current_local_path, data)
+            log.info(f"Vista local refrescada ({time.time()-t0:.4f}s)")
         except Exception as e:
             log.error(f"Error local: {e}")
 
@@ -144,6 +149,8 @@ class AppManager:
         if not self.sftp.sftp_client or self._sync_lock.locked(): return
         with self._sync_lock:
             try:
+                t0 = time.time()
+                log.info(f"Sincronizando directorio remoto: {path_to_sync}")
                 items = self.sftp.list_dir(path_to_sync)
                 new_data = []
                 for item in items:
@@ -158,8 +165,10 @@ class AppManager:
 
                 if self.current_remote_path == path_to_sync:
                     self.gui.root.after(0, lambda: self.gui.view.remote_exp.refresh(path_to_sync, new_data))
+                log.info(f"Sync remoto finalizado en {time.time()-t0:.4f}s")
             except Exception as e:
                 log.error(f"Error sync remoto: {e}")
 
     def start(self): 
+        log.info("Lanzando aplicación.")
         self.gui.run()
