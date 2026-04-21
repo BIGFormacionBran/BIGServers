@@ -1,31 +1,20 @@
 class UITheme:
-    # --- COLORES ---
     BG_DARK = "#1e1e1e"
     BG_CHAT = "#252526"
     BG_INPUT = "#3c3c3c"
     FG_TEXT = "#d4d4d4"
     ACCENT = "#007acc"
     
-    # --- CONFIGURACIÓN BASE ---
+    # Fuentes unificadas
     FONT_MONO = ("Consolas", 10)
-    FONT_UI = ("Segoe UI", 9)
+    FONT_BOLD = ("Consolas", 10, "bold")
 
-    # Atributos comunes para evitar repetición
-    _BASE_BTN = {
-        "relief": "flat",
-        "cursor": "hand2",
-        "font": (FONT_UI[0], 9, "bold"),
-        "activeforeground": "white"
+    CHAT_DISPLAY_ATTR = {
+        "bg": BG_CHAT, "fg": FG_TEXT, "font": FONT_MONO,
+        "borderwidth": 0, "padx": 10, "pady": 10
     }
-
-    QUICK_BTN_ATTR = {**_BASE_BTN, "bg": BG_INPUT, "fg": FG_TEXT, "activebackground": ACCENT}
-    SEND_BTN_ATTR = {**_BASE_BTN, "bg": ACCENT, "fg": "white", "activebackground": "#005a9e"}
     
-    CHAT_INPUT_ATTR = {
-        "bg": BG_INPUT, "fg": "white", "insertbackground": "white",
-        "borderwidth": 0, "highlightthickness": 1, "highlightcolor": ACCENT,
-        "font": FONT_MONO
-    }
-
-    # Helpers de Layout
-    LAYOUT_FILL = {"expand": True, "fill": "both"}
+    # Reutilización de estilos para botones
+    BTN_BASE = {"relief": "flat", "cursor": "hand2", "font": ("Segoe UI", 9, "bold")}
+    QUICK_BTN_ATTR = {**BTN_BASE, "bg": BG_INPUT, "fg": FG_TEXT, "activebackground": ACCENT}
+    SEND_BTN_ATTR = {**BTN_BASE, "bg": ACCENT, "fg": "white", "activebackground": "#005a9e"}

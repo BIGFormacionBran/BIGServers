@@ -1,22 +1,26 @@
 import sys
 from pathlib import Path
+from functools import lru_cache
 
 class Paths:
     IS_FROZEN = getattr(sys, 'frozen', False)
-    # Directorio raíz del proyecto o del ejecutable
     BASE_DIR = Path(sys.executable).parent if IS_FROZEN else Path(__file__).parent.parent
     
-    DATA = BASE_DIR / "data"
+    # Directorios base
     LOGS = BASE_DIR / "logs"
+    DATA = BASE_DIR / "data"
     
-    LOG_FILE = LOGS / "app.log"
-    REMOTE_CACHE = DATA / "cache.json"
-    ENV_FILE = BASE_DIR / ".env"
+    # Archivos específicos
+    LOG_FILE = LOGS / "system_debug.log"
+    REMOTE_CACHE = DATA / "remote_cache.json"
+    ENV_FILE = (Path(sys._MEIPASS) / ".env") if IS_FROZEN and hasattr(sys, '_MEIPASS') else BASE_DIR / ".env"
 
     @classmethod
-    def init(cls):
-        """Crea la estructura de carpetas necesaria."""
-        for p in [cls.DATA, cls.LOGS]:
+    @lru_cache(maxsize=1)
+    def ensure_dirs(cls):
+        """Crea las carpetas necesarias una sola vez."""
+        for p in [cls.LOGS, cls.DATA]:
             p.mkdir(parents=True, exist_ok=True)
+        return True
 
-Paths.init()
+Paths.ensure_dirs()
