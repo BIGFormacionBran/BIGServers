@@ -7,8 +7,8 @@ psycopg2-binary>=2.9.10
 # --- Gestión de Entorno ---
 python-dotenv>=1.0.1
 
-# --- Interfaz y Gráficos (La solución al error) ---
-# Pillow 11.0.0+ es la que tiene soporte oficial para Python 3.13
+# --- Interfaz y Gráficos ---
+# Pillow 11.0.0+ es necesaria para Python 3.13
 Pillow>=11.0.0
 
 # --- Networking y Build ---
