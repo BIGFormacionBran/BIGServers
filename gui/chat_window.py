@@ -1,6 +1,7 @@
 import tkinter as tk
 import ctypes
 import time
+import os  # <-- CORREGIDO: Importación necesaria para os.path
 from .views.chat_view import ChatView
 from utils.paths_util import Paths
 from utils.logger_util import Logger
@@ -14,27 +15,31 @@ class ChatWindow:
         self.root.title("BIGServers - SFTP AI Agent")
         self.root.geometry("1000x700")
         
-        # Seteamos el ID interno para que Windows respete nuestro icono
-        self._set_taskbar_icon()
+        # Primero configuramos los iconos
+        self._set_app_icons()
         
-        # Carga de la vista
         self.view = ChatView(self.root, on_submit_callback)
-        
         log.info(f"✅ GUI inicializada en {(time.perf_counter()-t0)*1000:.2f}ms")
 
-    def _set_taskbar_icon(self):
-        """Fuerza a Windows a mostrar el logo en la barra de tareas."""
+    def _set_app_icons(self):
+        """Configura el icono en la ventana y en la barra de tareas de Windows."""
         try:
-            # Identificador único de aplicación
-            appid = 'com.bigservers.sftpagent.v1'
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
+            icon_path = str(Paths.APP_ICON)
             
-            icon_file = str(Paths.DATA / "logo.ico")
-            if os.path.exists(icon_file):
-                self.root.iconbitmap(icon_file)
-                log.info("🎨 Icono aplicado con éxito.")
+            if os.path.exists(icon_path):
+                # 1. Icono de la ventana (Esquina superior izquierda)
+                self.root.iconbitmap(icon_path)
+                
+                # 2. Icono de la Barra de Tareas (Windows)
+                # Esto le dice a Windows que no agrupe el script como 'python.exe' sino como nuestra app
+                appid = 'bigservers.sftp.aiagent.v1'
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
+                
+                log.info("🎨 Iconos de ventana y barra de tareas aplicados.")
+            else:
+                log.warning(f"⚠️ No se encontró el icono en: {icon_path}")
         except Exception as e:
-            log.warning(f"⚠️ No se pudo setear el icono: {e}")
+            log.warning(f"⚠️ Error al setear iconos: {e}")
 
     def write_message(self, role, text):
         self.view.render_message(role, text)
