@@ -1,32 +1,31 @@
 import tkinter as tk
-from tkinter import scrolledtext
 from gui.styles.ui_theme import UITheme
 
-class ChatDisplay(scrolledtext.ScrolledText):
-    """Versión optimizada con estilos pre-cargados."""
-    def __init__(self, master, **kwargs):
-        # Combinamos los atributos del tema con cualquier override que venga por kwargs
-        attrs = {**UITheme.CHAT_DISPLAY_ATTR, **kwargs}
-        super().__init__(master, **attrs)
+class CanvasButton(tk.Canvas):
+    """Botón optimizado dibujado en Canvas para evitar la carga de widgets del sistema."""
+    def __init__(self, master, text, command, width=100, height=30, bg_color=UITheme.ACCENT, **kwargs):
+        super().__init__(master, width=width, height=height, bg=master["bg"], highlightthickness=0, bd=0, cursor="hand2")
+        self.command = command
+        self.bg_color = bg_color
+        self.text = text
+        
+        self.rect = self.create_rectangle(0, 0, width, height, fill=bg_color, outline="")
+        self.label = self.create_text(width//2, height//2, text=text, fill="white", font=("Segoe UI", 9, "bold"))
+        
+        self.bind("<Button-1>", lambda e: self.command())
+        self.bind("<Enter>", lambda e: self.itemconfig(self.rect, fill="#005a9e"))
+        self.bind("<Leave>", lambda e: self.itemconfig(self.rect, fill=bg_color))
 
 class ChatInput(tk.Entry):
-    """Input con manejo de foco y estilos automáticos."""
     def __init__(self, master, **kwargs):
         attrs = {**UITheme.CHAT_INPUT_ATTR, **kwargs}
         super().__init__(master, **attrs)
-        
-        # Optimización: UX de foco automática
-        self.bind("<FocusIn>", lambda e: self.config(highlightthickness=2))
-        self.bind("<FocusOut>", lambda e: self.config(highlightthickness=1))
+        self.config(highlightbackground=UITheme.BG_INPUT, highlightcolor=UITheme.ACCENT)
 
-class QuickButton(tk.Button):
-    """Botón genérico optimizado para acciones rápidas."""
+class QuickButton(CanvasButton):
     def __init__(self, master, text, command, **kwargs):
-        attrs = {**UITheme.QUICK_BTN_ATTR, **kwargs}
-        super().__init__(master, text=text, command=command, **attrs)
+        super().__init__(master, text, command, width=80, height=25, bg_color=UITheme.BG_INPUT)
 
-class SendButton(tk.Button):
-    """Botón de envío con estilo de acento resaltado."""
+class SendButton(CanvasButton):
     def __init__(self, master, command, **kwargs):
-        attrs = {**UITheme.SEND_BTN_ATTR, **kwargs}
-        super().__init__(master, text="ENVIAR", command=command, **attrs)
+        super().__init__(master, "ENVIAR", command, width=80, height=35, bg_color=UITheme.ACCENT)

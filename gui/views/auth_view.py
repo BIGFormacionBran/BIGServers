@@ -20,7 +20,6 @@ class AuthView(tk.Frame):
         remember = self.remember_var.get()
         
         from daos.user_dao import UserDAO
-        # Aquí UserDAO usará internamente SecurityUtil si es necesario
         user = UserDAO.validate_login(email, password)
         if user:
             if self.success_callback:
@@ -28,12 +27,13 @@ class AuthView(tk.Frame):
         else:
             messagebox.showerror("Error", "Credenciales incorrectas.")
 
-    # ... (el resto de métodos _build_ ui se mantienen igual que tu original)
     def _build_login_ui(self):
         self._clear_frame()
         tk.Label(self, text="INICIAR SESIÓN", bg=UITheme.BG_DARK, fg=UITheme.ACCENT, font=("Segoe UI", 16, "bold")).pack(pady=20)
         self.email_ent = self._create_input("Email:")
+        # Ahora devuelve el entry directamente para asignar a self.pass_ent
         self.pass_ent = self._create_input("Contraseña:", is_password=True)
+        
         tk.Checkbutton(self, text="Recordar usuario", variable=self.remember_var, bg=UITheme.BG_DARK, fg="white", selectcolor=UITheme.BG_INPUT, activebackground=UITheme.BG_DARK).pack(pady=5)
         tk.Button(self, text="INGRESAR", command=self._on_login, **UITheme.SEND_BTN_ATTR, width=20).pack(pady=10)
         tk.Button(self, text="¿No tienes cuenta? Regístrate", command=self._build_register_ui, bg=UITheme.BG_DARK, fg="#858585", borderwidth=0, cursor="hand2").pack()
@@ -44,9 +44,11 @@ class AuthView(tk.Frame):
         self.reg_name = self._create_input("Nombre:")
         self.reg_email = self._create_input("Email:")
         self.reg_pass = self._create_input("Contraseña:", is_password=True)
+        
         tk.Checkbutton(self, text="Tengo una clave de registro (Rol)", variable=self.has_key_var, command=self._toggle_key_field, bg=UITheme.BG_DARK, fg="white", selectcolor=UITheme.BG_INPUT).pack(pady=5)
         self.key_container = tk.Frame(self, bg=UITheme.BG_DARK)
         self.reg_key = self._create_input("Key de Acceso:", container=self.key_container, is_password=True)
+        
         tk.Button(self, text="REGISTRARSE", command=self._on_register, **UITheme.SEND_BTN_ATTR, width=20).pack(pady=15)
         tk.Button(self, text="Volver al Login", command=self._build_login_ui, bg=UITheme.BG_DARK, fg="#858585", borderwidth=0, cursor="hand2").pack()
 
@@ -61,14 +63,36 @@ class AuthView(tk.Frame):
                 self.success_callback(user, self.remember_var.get())
         else: messagebox.showerror("Error", msg)
 
+    def _toggle_password(self, entry, btn):
+        if entry.cget('show') == '*':
+            entry.config(show='')
+            btn.config(text="🙈")
+        else:
+            entry.config(show='*')
+            btn.config(text="👁")
+
     def _create_input(self, label_text, container=None, is_password=False):
         parent = container if container else self
-        frame = tk.Frame(parent, bg=UITheme.BG_DARK); frame.pack(fill="x", padx=40, pady=5)
+        frame = tk.Frame(parent, bg=UITheme.BG_DARK)
+        frame.pack(fill="x", padx=40, pady=5)
+        
         tk.Label(frame, text=label_text, bg=UITheme.BG_DARK, fg="#cccccc", font=("Segoe UI", 9)).pack(anchor="w")
-        e_f = tk.Frame(frame, bg=UITheme.BG_INPUT); e_f.pack(fill="x")
+        
+        e_f = tk.Frame(frame, bg=UITheme.BG_INPUT)
+        e_f.pack(fill="x")
+        
         entry = tk.Entry(e_f, bg=UITheme.BG_INPUT, fg="white", borderwidth=5, relief="flat", insertbackground="white")
-        if is_password: entry.config(show="*")
-        entry.pack(side="left", expand=True, fill="x")
+        if is_password:
+            entry.config(show="*")
+            entry.pack(side="left", expand=True, fill="x")
+            # Botón para ver contraseña
+            btn_show = tk.Button(e_f, text="👁", bg=UITheme.BG_INPUT, fg="white", borderwidth=0, 
+                                 activebackground=UITheme.BG_INPUT, cursor="hand2", font=("Segoe UI", 10))
+            btn_show.config(command=lambda: self._toggle_password(entry, btn_show))
+            btn_show.pack(side="right", padx=5)
+        else:
+            entry.pack(side="left", expand=True, fill="x")
+            
         return entry
 
     def _toggle_key_field(self):
