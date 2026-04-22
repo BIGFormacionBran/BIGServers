@@ -20,17 +20,22 @@ class UserDAO:
             """
             res = DBUtil.execute_query(sql, (email,))
             if res:
-                uid, name, enc_pw_hash, role_name = res[0]
+                uid, name, db_pw_value, role_name = res[0]
                 
-                # DESENCRIPTACIÓN CON KEY DE GITHUB (SecurityUtil usa ENCRYPTION_KEY)
-                # Desencriptamos el hash almacenado para obtener el hash de bcrypt original
-                try:
-                    raw_pw_hash = SecurityUtil.decrypt(enc_pw_hash)
-                except Exception:
-                    log.error("❌ Error desencriptando el hash de la base de datos.")
-                    return None
+                # --- LÓGICA DE DESENCRIPTACIÓN INTELIGENTE ---
+                # Si empieza por $2b$, es un hash directo de bcrypt (el caso de tu imagen)
+                # Si no, intentamos desencriptarlo con la clave de GitHub
+                if db_pw_value.startswith('$2b$'):
+                    raw_pw_hash = db_pw_value
+                else:
+                    try:
+                        raw_pw_hash = SecurityUtil.decrypt(db_pw_value)
+                        if raw_pw_hash is None: raise ValueError("Decryption failed")
+                    except Exception:
+                        log.error("❌ Falló la desencriptación del hash encriptado.")
+                        return None
 
-                # Verificación de Bcrypt contra la contraseña plana
+                # Verificación de Bcrypt
                 if bcrypt.checkpw(password.encode(), raw_pw_hash.encode()):
                     log.info(f"✅ Login exitoso para: {name}")
                     return {"id": uid, "nombre": name, "rol": role_name}
@@ -47,7 +52,6 @@ class UserDAO:
         try:
             sql = "UPDATE USUARIO SET session_token = %s WHERE id = %s"
             DBUtil.execute_query(sql, (raw_token, user_id), fetch=False)
-            # El token se guarda plano en DB pero se envía encriptado al cliente
             return SecurityUtil.encrypt(raw_token)
         except Exception as e:
             log.error(f"Error generando session_token: {e}")
@@ -59,7 +63,6 @@ class UserDAO:
         try:
             raw_token = SecurityUtil.decrypt(encrypted_token)
             if not raw_token: return None
-
             sql = """
                 SELECT u.id, u.nombre, r.nombre 
                 FROM USUARIO u 
@@ -79,18 +82,15 @@ class UserDAO:
         try:
             roles = DBUtil.execute_query("SELECT id, registration_key FROM ROL WHERE registration_key IS NOT NULL")
             target_role_id = None
-            
             if plain_key:
                 for r_id, enc_key in roles:
                     if SecurityUtil.decrypt(enc_key) == plain_key:
                         target_role_id = r_id
                         break
-            
             if not target_role_id: return False, "Clave de registro inválida."
 
-            # Generamos hash de bcrypt
+            # Aquí lo hacemos bien: Bcrypt -> Encriptación Fernet (GitHub Secret)
             pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-            # ENCRIPTAMOS el hash con la KEY DE GITHUB antes de guardar
             enc_pw_hash = SecurityUtil.encrypt(pw_hash)
             
             sql = "INSERT INTO USUARIO (nombre, email, password_hash, rol_id) VALUES (%s, %s, %s, %s)"
