@@ -1,15 +1,12 @@
-import os
 import bcrypt
 import uuid
 from utils.db_util import DBUtil
-from cryptography.fernet import Fernet
+from utils.security_util import SecurityUtil
 from utils.logger_util import Logger
 
 log = Logger.get_logger("USER_DAO")
 
 class UserDAO:
-    _key = os.getenv("ENCRYPTION_KEY")
-    _cipher = Fernet(_key.encode()) if _key else None
 
     @classmethod
     def validate_login(cls, email, password):
@@ -27,6 +24,7 @@ class UserDAO:
                 if bcrypt.checkpw(password.encode(), pw_hash.encode()):
                     log.info(f"✅ Login exitoso para: {name}")
                     return {"id": uid, "nombre": name, "rol": role_name}
+            
             log.warning(f"🚫 Credenciales inválidas para: {email}")
             return None
         except Exception as e:
@@ -36,22 +34,24 @@ class UserDAO:
     @classmethod
     def generate_session_token(cls, user_id):
         """Genera un token único, lo guarda en DB y lo devuelve encriptado para el JSON."""
-        if not cls._cipher: return None
         raw_token = str(uuid.uuid4())
         try:
             sql = "UPDATE USUARIO SET session_token = %s WHERE id = %s"
             DBUtil.execute_query(sql, (raw_token, user_id), fetch=False)
-            return cls._cipher.encrypt(raw_token.encode()).decode()
+            # Encriptamos el token antes de mandarlo al archivo local
+            return SecurityUtil.encrypt(raw_token)
         except Exception as e:
             log.error(f"Error generando session_token: {e}")
             return None
 
     @classmethod
     def validate_session(cls, encrypted_token):
-        """Valida el token del JSON local contra la DB."""
-        if not cls._cipher or not encrypted_token: return None
+        """Valida el token del JSON local (previa desencriptación) contra la DB."""
+        if not encrypted_token: return None
         try:
-            raw_token = cls._cipher.decrypt(encrypted_token.encode()).decode()
+            raw_token = SecurityUtil.decrypt(encrypted_token)
+            if not raw_token: return None
+
             sql = """
                 SELECT u.id, u.nombre, r.nombre 
                 FROM USUARIO u 
@@ -69,19 +69,20 @@ class UserDAO:
     @classmethod
     def register_with_key(cls, nombre, email, password, plain_key):
         log.info(f"📝 Registro para: {email}")
-        if not cls._cipher: return False, "Error: Llave no configurada."
         try:
+            # Obtenemos roles que tengan key de registro
             roles = DBUtil.execute_query("SELECT id, nombre, registration_key FROM ROL WHERE registration_key IS NOT NULL")
             target_role_id = None
+            
             if plain_key:
                 for r_id, r_nombre, enc_key in roles:
-                    try:
-                        if cls._cipher.decrypt(enc_key.encode()).decode() == plain_key:
-                            target_role_id = r_id
-                            break
-                    except: continue
+                    # Usamos el Util para comparar la key plana con la de la DB
+                    if SecurityUtil.decrypt(enc_key) == plain_key:
+                        target_role_id = r_id
+                        break
             
-            if not target_role_id: return False, "Clave de registro inválida."
+            if not target_role_id: 
+                return False, "Clave de registro inválida."
 
             pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
             sql = "INSERT INTO USUARIO (nombre, email, password_hash, rol_id) VALUES (%s, %s, %s, %s)"

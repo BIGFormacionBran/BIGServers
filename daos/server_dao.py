@@ -1,4 +1,5 @@
 from utils.db_util import DBUtil
+from utils.security_util import SecurityUtil
 
 class ServerDAO:
     @classmethod
@@ -10,15 +11,19 @@ class ServerDAO:
 
     @classmethod
     def get_details_by_name(cls, name):
-        """Obtiene toda la info de conexión de un servidor por su nombre."""
+        """Obtiene toda la info de conexión y desencripta la contraseña."""
         sql = "SELECT host, usuario_ssh, password_ssh, puerto, fingerprint FROM SERVIDOR WHERE nombre = %s"
         res = DBUtil.execute_query(sql, (name,))
+        
         if res:
-            h, u, p, prt, f = res[0]
+            h, u, p_encrypted, prt, f = res[0]
+            # Desencriptamos la contraseña usando el Util centralizado
+            p_decrypted = SecurityUtil.decrypt(p_encrypted)
+            
             return {
                 "host": h, 
                 "user": u, 
-                "password": p, 
+                "password": p_decrypted, 
                 "port": prt, 
                 "fingerprint": f
             }
