@@ -21,7 +21,6 @@ jobs:
 
       - name: Ejecutar Script de Actualización
         env:
-          # Aquí mapeamos tus secrets de GitHub a variables de entorno
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-        run: python ollama/keys.py
+        run: python keys.py 
