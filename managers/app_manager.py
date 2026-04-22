@@ -1,4 +1,5 @@
 import threading
+import os
 from managers.sftp_manager import SFTPManager
 from utils.logger_util import Logger
 from utils.json_util import JsonUtil
@@ -73,20 +74,61 @@ class AppManager:
             server_name = parts[1]
             self.root.after(0, lambda: self.root.current_view.write_message("system", f"Intentando conectar a {server_name}..."))
             
-            # Lógica Developer: Puede entrar pero no editar (implementaremos el bloqueo de edición en la GUI más adelante)
             if role == "DEVELOPER":
                 self.root.after(0, lambda: self.root.current_view.write_message("system", "ℹ️ Modo Developer: Acceso de lectura/escritura permitido. Gestión de credenciales bloqueada."))
 
             success, msg = self.sftp.connect(server_name)
             if success:
                 self.root.after(0, lambda: self.root.current_view.write_message("system", f"✅ Conectado a {server_name} con éxito."))
+                # 1. Mostramos los paneles de archivos
                 self.root.after(0, self.root.current_view.show_file_explorer)
+                # 2. Refrescamos el contenido de los paneles
+                self._refresh_explorers()
             else:
                 self.root.after(0, lambda: self.root.current_view.write_message("system", f"❌ Error: {msg}"))
         
         elif cmd == "/list":
-             self.root.after(0, lambda: self.root.current_view.write_message("system", "Listando servidores disponibles..."))
-             # Aquí iría la lógica de refrescar lista
+             self.root.after(0, lambda: self.root.current_view.write_message("system", "Refrescando lista de archivos..."))
+             self._refresh_explorers()
         else:
-            # Respuesta genérica de la IA (Placeholder)
             self.root.after(0, lambda: self.root.current_view.write_message("agent", f"Entiendo que quieres hacer: '{text}'. Por ahora solo proceso comandos SFTP."))
+
+    def _refresh_explorers(self):
+        """Obtiene la estructura de archivos local y remota y actualiza la GUI."""
+        try:
+            # --- PROCESAR REMOTO ---
+            remote_data = []
+            try:
+                # Obtenemos lista de objetos SFTPAttributes de paramiko
+                raw_remote_files = self.sftp.list_dir(".")
+                for f in raw_remote_files:
+                    # Determinamos si es directorio por el modo (longname suele empezar con 'd')
+                    is_dir = "d" in f.longname[0]
+                    tipo = "DIR" if is_dir else "FILE"
+                    size = f"{f.st_size / 1024:.1f} KB" if not is_dir else ""
+                    remote_data.append((f.filename, tipo, size))
+            except Exception as e:
+                log.error(f"Error listando remoto: {e}")
+                self.root.after(0, lambda: self.root.current_view.write_message("system", "⚠️ Error al leer archivos remotos."))
+
+            # --- PROCESAR LOCAL ---
+            local_data = []
+            local_path = os.getcwd()
+            try:
+                for item in os.listdir(local_path):
+                    full_p = os.path.join(local_path, item)
+                    is_dir = os.path.isdir(full_p)
+                    tipo = "DIR" if is_dir else "FILE"
+                    size = f"{os.path.getsize(full_p) / 1024:.1f} KB" if not is_dir else ""
+                    local_data.append((item, tipo, size))
+            except Exception as e:
+                log.error(f"Error listando local: {e}")
+
+            # --- ENVIAR A LA GUI ---
+            view = self.root.current_view
+            if hasattr(view, 'remote_exp') and hasattr(view, 'local_exp'):
+                self.root.after(0, lambda: view.remote_exp.refresh("/", remote_data))
+                self.root.after(0, lambda: view.local_exp.refresh(local_path, local_data))
+
+        except Exception as e:
+            log.error(f"Fallo crítico en _refresh_explorers: {e}")
