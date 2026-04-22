@@ -15,16 +15,8 @@ a = Analysis(
     ['main.py'],
     pathex=[base_path],
     binaries=[],
-    datas=[
-        ('.env', '.'),
-        (icon_path, 'data') if os.path.exists(icon_path) else (icon_path, '.'),
-    ],
-    hiddenimports=[
-        'psycopg2',
-        'cryptography.fernet',
-        'paramiko',
-        'tkinter',
-    ],
+    datas=[('.env', '.'),],
+    hiddenimports=['psycopg2','cryptography.fernet','paramiko','tkinter',],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -49,9 +41,9 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False, # GUI pura
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
-    icon=icon_path if os.path.exists(icon_path) else None,
+    icon=icon_path,
 )

@@ -40,31 +40,32 @@ jobs:
       id: release_info
       shell: pwsh
       run: |
-        # AJUSTE DE RUTA: data está en la raíz
         $jsonPath = "data/version.json"
         
         if (!(Test-Path $jsonPath)) { 
-            Write-Host "Error: No se encontró el archivo en $jsonPath"
-            ls -R # Esto te ayudará a ver la estructura en el log si falla
-            throw "No se encontró version.json" 
+            Write-Host "Error: No se encontró version.json"
+            throw "Falta archivo de configuración" 
         }
         
         $json = Get-Content $jsonPath | ConvertFrom-Json
         
-        # Crear estructura para el ZIP
+        # Crear carpeta temporal para el empaquetado
         New-Item -ItemType Directory -Path "dist/zip_content/data"
+        
+        # Copiar ejecutable principal
         Copy-Item "dist/BIGServers.exe" "dist/zip_content/"
         
-        # Copiamos el JSON original a la carpeta data del ZIP
-        Copy-Item "data/version.json" "dist/zip_content/data/"
+        # COPIAR TODO EL CONTENIDO DE DATA (Logo, Versión, etc.)
+        # Esto asegura que el logo.ico esté presente para la App
+        Copy-Item "data/*" "dist/zip_content/data/" -Recurse -Force
         
-        # Generar ZIP
+        # Generar el ZIP final
         Compress-Archive -Path "dist/zip_content/*" -DestinationPath "dist/BIGServers.zip"
         
-        # Crear version.json suelto para el checker
+        # Crear version.json independiente para el autoupdater
         $json | ConvertTo-Json -Depth 10 | Out-File -FilePath dist/version.json -Encoding utf8
         
-        # Exportar variables
+        # Exportar variables para el paso de Release
         echo "TAG=$($json.action_config.tag)" >> $env:GITHUB_OUTPUT
         echo "TITLE=$($json.action_config.release_title)" >> $env:GITHUB_OUTPUT
         echo "DESC=$($json.action_config.release_description)" >> $env:GITHUB_OUTPUT
