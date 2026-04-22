@@ -11,29 +11,26 @@ load_dotenv(Paths.ENV_FILE)
 
 class DBUtil:
     DATABASE_URL = os.getenv("DATABASE_URL")
+    ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
     _cipher = None
-    
-    if key := os.getenv("ENCRYPTION_KEY"):
-        try:
-            _cipher = Fernet(key.encode())
-        except Exception as e:
-            log.error(f"Error Fernet: {e}")
+
+    if ENCRYPTION_KEY:
+        try: _cipher = Fernet(ENCRYPTION_KEY.encode())
+        except Exception as e: log.error(f"Error Fernet: {e}")
 
     @classmethod
     def _execute(cls, query, params=None):
         start = time.perf_counter()
-        if not cls.DATABASE_URL:
-            log.error("DATABASE_URL no configurada")
-            return None
+        if not cls.DATABASE_URL: return None
         try:
             with psycopg2.connect(cls.DATABASE_URL) as conn:
                 with conn.cursor() as cur:
                     cur.execute(query, params)
                     res = cur.fetchall()
-                    log.info(f"Query ejecutada en {(time.perf_counter()-start)*1000:.2f}ms")
+                    log.info(f"⏱️ Query OK: {(time.perf_counter()-start)*1000:.2f}ms")
                     return res
         except Exception as e:
-            log.error(f"Error SQL: {e}")
+            log.error(f"❌ Error SQL: {e}")
             return None
 
     @classmethod
@@ -43,18 +40,13 @@ class DBUtil:
 
     @classmethod
     def get_server_details(cls, name):
-        query = """SELECT s.host, s.usuario_ssh, s.password_ssh, s.puerto, s.fingerprint, t.nombre
-                   FROM SERVIDOR s JOIN TIPO_CONEXION t ON s.tipo_id = t.id WHERE s.nombre = %s;"""
-        rows = cls._execute(query, (name,))
+        sql = """SELECT s.host, s.usuario_ssh, s.password_ssh, s.puerto, s.fingerprint, t.nombre
+                 FROM SERVIDOR s JOIN TIPO_CONEXION t ON s.tipo_id = t.id WHERE s.nombre = %s;"""
+        rows = cls._execute(sql, (name,))
         if not rows or not cls._cipher: return None
-        
         r = rows[0]
-        try:
-            return {
-                "host": r[0], "user": r[1],
-                "password": cls._cipher.decrypt(r[2].encode()).decode(),
-                "port": r[3], "fingerprint": r[4], "type": r[5]
-            }
-        except Exception as e:
-            log.error(f"Error descifrado: {e}")
-            return None
+        return {
+            "host": r[0], "user": r[1],
+            "password": cls._cipher.decrypt(r[2].encode()).decode(),
+            "port": r[3], "fingerprint": r[4], "type": r[5]
+        }
