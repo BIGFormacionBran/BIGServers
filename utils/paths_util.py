@@ -9,9 +9,13 @@ class Paths:
     # Directorios base
     LOGS = BASE_DIR / "logs"
     DATA = BASE_DIR / "data"
-    
+
+    # Referencia al Icono
+    APP_ICON = DATA / "logo.ico"
+
     # Archivos específicos
     LOG_FILE = LOGS / "system_debug.log"
+    USER_CONFIG = DATA / "user_config.json"
     REMOTE_CACHE = DATA / "remote_cache.json"
     ENV_FILE = (Path(sys._MEIPASS) / ".env") if IS_FROZEN and hasattr(sys, '_MEIPASS') else BASE_DIR / ".env"
 

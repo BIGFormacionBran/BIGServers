@@ -1,30 +1,34 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
+import sys
+from PyInstaller.utils.hooks import collect_data_files
 
 block_cipher = None
-
-# Definir la ruta base para asegurar que encuentre los archivos
 base_path = os.getcwd()
+
+# Asegurar que el icono existe antes de compilar
+icon_path = os.path.join(base_path, 'data', 'logo.ico')
+if not os.path.exists(icon_path):
+    icon_path = os.path.join(base_path, 'logo.ico')
 
 a = Analysis(
     ['main.py'],
     pathex=[base_path],
     binaries=[],
     datas=[
-        ('.env', '.'),           # Archivo de configuración (DATABASE_URL, etc)
-        # Si tienes una carpeta de assets o iconos, añádela aquí:
-        # ('gui/assets', 'gui/assets'), 
+        ('.env', '.'),
+        (icon_path, 'data') if os.path.exists(icon_path) else (icon_path, '.'),
     ],
     hiddenimports=[
         'psycopg2',
         'cryptography.fernet',
-        'cryptography.hazmat.backends.openssl',
         'paramiko',
+        'tkinter',
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['matplotlib', 'notebook', 'test'], # Excluimos basura para reducir peso
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -45,13 +49,9 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    console=False,  # Falso para que sea una aplicación de ventana pura (GUI)
+    console=False, # GUI pura
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-    icon='logo.ico' if os.path.exists('logo.ico') else None,
+    icon=icon_path if os.path.exists(icon_path) else None,
 )
