@@ -1,9 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
-from ..components.explorer_widget import ExplorerWidget
-from ..components.chat_container import ChatContainer
-from ..components.chat_widgets import ChatInput, QuickButton, SendButton
-from ..styles.ui_theme import UITheme
+from gui.components.explorer_widget import ExplorerWidget
+from gui.components.chat_container import ChatContainer
+from gui.components.chat_widgets import ChatInput, QuickButton, SendButton
+from gui.styles.ui_theme import UITheme
 
 class ChatView:
     def __init__(self, root, on_submit_callback):

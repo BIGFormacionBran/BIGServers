@@ -1,11 +1,15 @@
 import tkinter as tk
-from ..styles.ui_theme import UITheme
+from gui.styles.ui_theme import UITheme
 
 class AuthView(tk.Frame):
-    def __init__(self, master, controller):
+    def __init__(self, master, success_callback=None, **kwargs):
+        # Master será la MainWindow. El AppManager pasa success_callback por kwargs en show_view
         super().__init__(master, bg=UITheme.BG_DARK)
         self.master = master
-        self.controller = controller
+        # En el modelo de ventana única, el controller es el app_manager (master.app)
+        self.controller = master.app 
+        self.success_callback = success_callback
+        
         self.pack(expand=True, fill="both")
         
         self.remember_var = tk.BooleanVar(value=False)
@@ -39,12 +43,10 @@ class AuthView(tk.Frame):
         self.reg_email = self._create_input("Email:")
         self.reg_pass = self._create_input("Contraseña:", is_password=True)
 
-        # Checkbox Recordar (también en registro por comodidad)
         tk.Checkbutton(self, text="Recordar tras registro", variable=self.remember_var,
                        bg=UITheme.BG_DARK, fg="white", selectcolor=UITheme.BG_INPUT,
                        activebackground=UITheme.BG_DARK).pack(pady=2)
 
-        # Checkbox para Key de Rol
         tk.Checkbutton(self, text="Tengo una clave de registro (Rol)", variable=self.has_key_var,
                        command=self._toggle_key_field, bg=UITheme.BG_DARK, fg="white", 
                        selectcolor=UITheme.BG_INPUT).pack(pady=5)
@@ -56,17 +58,35 @@ class AuthView(tk.Frame):
         tk.Button(self, text="Volver al Login", command=self._build_login_ui,
                   bg=UITheme.BG_DARK, fg="#858585", borderwidth=0, cursor="hand2").pack()
 
-    def _on_register(self):
-        # AHORA SÍ: Llamamos al controlador con todos los datos
-        self.controller.register_action(
-            self.reg_name.get(), 
-            self.reg_email.get(), 
-            self.reg_pass.get(), 
-            self.reg_key.get() if self.has_key_var.get() else None,
-            self.remember_var.get()
-        )
+    def _on_login(self):
+        # Usamos los métodos de ayuda del controlador (AuthWindow o AppManager)
+        email = self.email_ent.get()
+        password = self.pass_ent.get()
+        remember = self.remember_var.get()
+        
+        from daos.user_dao import UserDAO
+        user = UserDAO.validate_login(email, password)
+        if user and self.success_callback:
+            self.success_callback(user, remember)
+        else:
+            self.show_error("Credenciales incorrectas.")
 
-    # ... (resto de métodos auxiliares _create_input, _toggle_pass, etc. se mantienen igual)
+    def _on_register(self):
+        from daos.user_dao import UserDAO
+        nombre = self.reg_name.get()
+        email = self.reg_email.get()
+        password = self.reg_pass.get()
+        key = self.reg_key.get() if self.has_key_var.get() else None
+        remember = self.remember_var.get()
+
+        success, msg = UserDAO.register_with_key(nombre, email, password, key)
+        if success:
+            user = UserDAO.validate_login(email, password)
+            if user and self.success_callback:
+                self.success_callback(user, remember)
+        else:
+            self.show_error(msg)
+
     def _create_input(self, label_text, container=None, is_password=False):
         parent = container if container else self
         frame = tk.Frame(parent, bg=UITheme.BG_DARK)
@@ -87,18 +107,12 @@ class AuthView(tk.Frame):
 
     def _toggle_key_field(self):
         if self.has_key_var.get():
-            self.key_container.pack(fill="x", after=self.reg_pass.master.master)
+            self.key_container.pack(fill="x")
         else:
             self.key_container.pack_forget()
 
     def _clear_frame(self):
         for widget in self.winfo_children(): widget.destroy()
 
-    def _on_login(self):
-        self.controller.login_action(self.email_ent.get(), self.pass_ent.get(), self.remember_var.get())
-        
     def show_error(self, msg):
         tk.messagebox.showerror("Error", msg)
-
-    def show_info(self, msg):
-        tk.messagebox.showinfo("Éxito", msg)

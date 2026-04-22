@@ -1,6 +1,6 @@
 import paramiko
 import time
-from .logger_util import Logger
+from utils.logger_util import Logger
 
 log = Logger.get_logger("SSH_UTIL")
 

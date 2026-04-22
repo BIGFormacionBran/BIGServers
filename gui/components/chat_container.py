@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import scrolledtext
-from ..styles.ui_theme import UITheme
+from gui.styles.ui_theme import UITheme
 
 class ChatContainer(tk.Frame):
     ROLES = {

@@ -1,7 +1,7 @@
 import os
 import psycopg2
 from dotenv import load_dotenv
-from .paths_util import Paths
+from utils.paths_util import Paths
 
 load_dotenv(Paths.ENV_FILE)
 

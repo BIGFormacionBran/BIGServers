@@ -1,5 +1,5 @@
 import logging
-from .paths_util import Paths
+from utils.paths_util import Paths
 
 class Logger:
     @staticmethod

@@ -1,5 +1,5 @@
 import tkinter as tk
-from ..styles.ui_theme import UITheme
+from gui.styles.ui_theme import UITheme
 
 class ExplorerWidget(tk.Frame):
     def __init__(self, master, title, on_double_click_callback, **kwargs):
