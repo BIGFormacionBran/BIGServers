@@ -6,7 +6,7 @@ def main():
     log = Logger.get_logger("MAIN")
     try:
         log.info("Iniciando Sistema...")
-        app = AppManager()
+        app = AppManager() 
         app.start()
     except Exception as e:
         log.error(f"Error fatal: {e}", exc_info=True)
